@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0b1220;color:#eaf0ff;
+  width:300px;padding:16px;}
+h2{font-size:15px;font-weight:700;margin-bottom:12px;color:#6ea8ff;}
+.field{margin-bottom:10px;}
+label{display:block;font-size:11px;color:#b9c4e6;margin-bottom:4px;}
+input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  color:#eaf0ff;border-radius:8px;padding:8px 10px;font-size:12px;outline:none;
+  font-family:monospace;}
+input:focus{border-color:#6ea8ff;}
+.btn{width:100%;background:rgba(110,168,255,.25);border:1px solid rgba(110,168,255,.5);
+  color:#eaf0ff;border-radius:8px;padding:10px;font-size:14px;font-weight:600;
+  cursor:pointer;margin-top:4px;transition:background .15s;}
+.btn:hover{background:rgba(110,168,255,.4);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.status{margin-top:10px;font-size:12px;min-height:18px;border-radius:6px;padding:0;}
+.status.ok{color:#65F2C4;}
+.status.err{color:#ff6b6b;}
+.status.loading{color:#b9c4e6;}
+.hint{font-size:10px;color:#6ea8ff;margin-top:6px;line-height:1.5;}
+.hint a{color:#6ea8ff;}
+.sep{border:none;border-top:1px solid rgba(255,255,255,.1);margin:12px 0;}
+</style>
+</head>
+<body>
+<h2>🇬🇧 Rota Updater</h2>
+
+<div class="field">
+  <label>GitHub Token</label>
+  <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx"/>
+  <div class="hint">
+    Needed to push updates to GitHub.<br>
+    <a href="https://github.com/settings/tokens/new?scopes=repo&description=RotaUpdater" target="_blank">
+      Create one here ↗
+    </a> (select "repo" scope)
+  </div>
+</div>
+
+<hr class="sep"/>
+
+<button class="btn" id="updateBtn">⟳ Update Rota Now</button>
+<div class="status" id="status"></div>
+
+<script>
+const tokenInput = document.getElementById('tokenInput');
+const updateBtn = document.getElementById('updateBtn');
+const statusEl = document.getElementById('status');
+
+// Load saved token
+chrome.storage.local.get('githubToken', data => {
+  if (data.githubToken) tokenInput.value = data.githubToken;
+});
+
+// Save token on change
+tokenInput.addEventListener('input', () => {
+  chrome.storage.local.set({ githubToken: tokenInput.value.trim() });
+});
+
+updateBtn.addEventListener('click', () => {
+  const token = tokenInput.value.trim();
+  if (!token) {
+    setStatus('Please enter your GitHub token first', 'err');
+    return;
+  }
+
+  updateBtn.disabled = true;
+  setStatus('Fetching rota from Verifone...', 'loading');
+
+  chrome.runtime.sendMessage({ action: 'fetchRota', token }, response => {
+    updateBtn.disabled = false;
+    if (chrome.runtime.lastError) {
+      setStatus('Extension error: ' + chrome.runtime.lastError.message, 'err');
+      return;
+    }
+    if (response.ok) {
+      setStatus('✓ ' + response.result, 'ok');
+    } else {
+      setStatus('✗ ' + response.error, 'err');
+    }
+  });
+});
+
+function setStatus(msg, type) {
+  statusEl.textContent = msg;
+  statusEl.className = 'status ' + type;
+}
+</script>
+</body>
+</html>
